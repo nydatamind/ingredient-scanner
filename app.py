@@ -331,11 +331,14 @@ def _get_key(name: str) -> str:
 
 
 def get_ai_engine(custom_g: str = "", custom_q: str = ""):
+    import importlib
+    import ai_handler
+    importlib.reload(ai_handler)
     from ai_handler import IngredientSafetyAI
 
     gk = custom_g or _get_key("GEMINI_API_KEY")
     qk = custom_q or _get_key("GROQ_API_KEY")
-    sig = f"{gk}:{qk}:v2"  # v2 = language-aware engine
+    sig = f"{gk}:{qk}:v3"  # v3 = reload & language-aware engine
 
     if "ai_engine" not in st.session_state or st.session_state.get("_sig") != sig:
         try:

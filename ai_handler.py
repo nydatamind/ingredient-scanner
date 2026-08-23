@@ -343,7 +343,7 @@ class IngredientSafetyAI:
             "groq":   self._groq   is not None,
         }
 
-    def analyze_image(self, image: Image.Image, language: str = "English") -> dict[str, Any]:
+    def analyze_image(self, image: Image.Image, language: str = "English", **kwargs: Any) -> dict[str, Any]:
         """
         Two-step pipeline when Groq is available (fastest):
           1. Gemini Vision: OCR → extract ingredients text
