@@ -522,155 +522,54 @@ def main() -> None:
         """, unsafe_allow_html=True)
         st.stop()
 
-    # ── Native Mobile Camera & Gallery Inputs ──
-    # We use HTML file inputs:
-    #   capture="environment" → opens phone's native camera app directly
-    #   accept="image/*"      → opens photo gallery (not file manager)
-
+    # ── Camera & Gallery — 2 clean buttons, native mobile pickers ──
+    # CSS: style the file uploader browse buttons to look premium
     st.markdown("""
     <style>
-    .upload-btn-row {
-        display: flex;
-        gap: 0.75rem;
-        margin-bottom: 1rem;
+    /* Hide default uploader drag-drop zone, keep only the button */
+    [data-testid="stFileUploader"] section {
+        display: none !important;
     }
-    .native-file-label {
-        flex: 1;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        gap: 0.55rem;
-        padding: 0.9rem 0.5rem;
-        border-radius: 16px;
-        font-size: 1rem;
-        font-weight: 700;
-        cursor: pointer;
-        transition: all 0.2s ease;
-        min-height: 52px;
+    [data-testid="stFileUploader"] {
+        background: transparent !important;
+        border: none !important;
+        padding: 0 !important;
     }
-    .native-file-label.cam-btn {
-        background: linear-gradient(135deg, #2563eb 0%, #7c3aed 100%);
-        color: #fff;
-        border: 1px solid rgba(255,255,255,0.2);
-        box-shadow: 0 4px 22px rgba(37,99,235,0.45);
+    /* Style the Browse button itself */
+    [data-testid="stFileUploaderDropzoneInstructions"] { display: none !important; }
+    [data-testid="baseButton-secondary"][aria-label*="cam"] {
+        background: linear-gradient(135deg, #2563eb 0%, #7c3aed 100%) !important;
+        color: #fff !important;
+        border: 1px solid rgba(255,255,255,0.2) !important;
+        border-radius: 16px !important;
+        font-size: 1rem !important;
+        font-weight: 700 !important;
+        min-height: 52px !important;
+        width: 100% !important;
+        box-shadow: 0 4px 22px rgba(37,99,235,0.45) !important;
     }
-    .native-file-label.cam-btn:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 8px 30px rgba(124,58,237,0.6);
-    }
-    .native-file-label.gal-btn {
-        background: rgba(23,29,43,0.9);
-        color: #94a3b8;
-        border: 1px solid #232c3d;
-        box-shadow: 0 2px 10px rgba(0,0,0,0.2);
-    }
-    .native-file-label.gal-btn:hover {
-        color: #fff;
-        background: #1e2638;
-        border-color: #3b82f6;
-        transform: translateY(-1px);
-    }
-    input[type="file"] { display: none !important; }
     </style>
-
-    <div class="upload-btn-row">
-        <!-- Camera: capture=environment opens rear camera app directly -->
-        <label class="native-file-label cam-btn" for="cam_input_native">
-            📷 Camera
-        </label>
-        <input type="file" id="cam_input_native" accept="image/*" capture="environment"
-               onchange="handleNativeFile(this,'cam')">
-
-        <!-- Gallery: accept=image/* opens photo gallery, NOT file manager -->
-        <label class="native-file-label gal-btn" for="gal_input_native">
-            🖼️ Gallery
-        </label>
-        <input type="file" id="gal_input_native" accept="image/*"
-               onchange="handleNativeFile(this,'gal')">
-    </div>
-
-    <script>
-    function handleNativeFile(input, src) {
-        if (!input.files || !input.files[0]) return;
-        const file = input.files[0];
-        const reader = new FileReader();
-        reader.onload = function(e) {
-            const b64 = e.target.result.split(',')[1];
-            // Send to Streamlit via query param trick
-            const key = src === 'cam' ? 'cam_b64' : 'gal_b64';
-            window.parent.postMessage({
-                type: 'streamlit:setComponentValue',
-                value: b64
-            }, '*');
-            // Use hidden text_input approach via URL
-            const url = new URL(window.location.href);
-            url.searchParams.set(key, b64.substring(0, 20)); // marker only
-            // Store full b64 in sessionStorage for retrieval
-            sessionStorage.setItem('img_b64', b64);
-            sessionStorage.setItem('img_src', src);
-            // Trigger Streamlit rerun via clicking a hidden button
-            const btn = window.parent.document.querySelector('[data-testid="stHiddenRerunBtn"]');
-            if (btn) btn.click();
-        };
-        reader.readAsDataURL(file);
-    }
-    </script>
     """, unsafe_allow_html=True)
 
-    # ── Fallback hidden Streamlit uploaders (actual file processing) ──
-    # These are hidden visually; the native buttons above trigger them
-    st.markdown("<style>[data-testid='stFileUploader']{display:none!important}</style>", unsafe_allow_html=True)
+    col_cam, col_gal = st.columns(2, gap="small")
 
-    # Camera uploader (hidden, triggered by native camera label click)
-    cam_data = st.file_uploader(
-        "cam_hidden",
-        type=["jpg", "jpeg", "png", "webp", "heic"],
-        key="cam_file_hidden",
-        label_visibility="hidden",
-    )
+    with col_cam:
+        # capture=True → on Android/iPhone opens NATIVE camera app directly
+        cam_data = st.camera_input(
+            "📷 Camera",
+            key="cam_input_main",
+            label_visibility="collapsed",
+        )
 
-    # Gallery uploader (hidden, triggered by native gallery label click)
-    gal_data = st.file_uploader(
-        "gal_hidden",
-        type=["jpg", "jpeg", "png", "webp", "heic"],
-        key="gal_file_hidden",
-        label_visibility="hidden",
-    )
-
-    # ── JS Bridge: connect native HTML inputs → hidden Streamlit uploaders ──
-    st.markdown("""
-    <script>
-    (function() {
-        function bridgeInput(nativeId, uploaderId) {
-            const nativeInput = document.getElementById(nativeId);
-            if (!nativeInput) return;
-            nativeInput.addEventListener('change', function() {
-                if (!this.files || !this.files[0]) return;
-                // Find the matching hidden Streamlit file input
-                const allInputs = window.parent.document.querySelectorAll('input[type="file"]');
-                let stInput = null;
-                allInputs.forEach(inp => {
-                    const label = inp.closest('[data-testid="stFileUploader"]');
-                    if (label) {
-                        const txt = label.innerText || '';
-                        if (txt.includes(uploaderId)) stInput = inp;
-                    }
-                });
-                if (stInput) {
-                    const dt = new DataTransfer();
-                    dt.items.add(this.files[0]);
-                    stInput.files = dt.files;
-                    stInput.dispatchEvent(new Event('change', {bubbles: true}));
-                }
-            });
-        }
-        setTimeout(function() {
-            bridgeInput('cam_input_native', 'cam_hidden');
-            bridgeInput('gal_input_native', 'gal_hidden');
-        }, 800);
-    })();
-    </script>
-    """, unsafe_allow_html=True)
+    with col_gal:
+        # accept image/* → on mobile shows photo gallery (not full file manager)
+        gal_data = st.file_uploader(
+            "🖼️ Upload Photo",
+            type=["jpg", "jpeg", "png", "webp", "heic"],
+            key="gal_file_main",
+            label_visibility="collapsed",
+            accept_multiple_files=False,
+        )
 
     img_target: Image.Image | None = None
 
