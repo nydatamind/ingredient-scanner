@@ -7,6 +7,8 @@ DEVELOPED BY NITIN YADAV
 
 from __future__ import annotations
 
+import base64
+import io
 import os
 from pathlib import Path
 import time
@@ -520,50 +522,164 @@ def main() -> None:
         """, unsafe_allow_html=True)
         st.stop()
 
-    # ── Modern Segmented Buttons Switcher ──
-    if "active_mode" not in st.session_state:
-        st.session_state["active_mode"] = "camera"
+    # ── Native Mobile Camera & Gallery Inputs ──
+    # We use HTML file inputs:
+    #   capture="environment" → opens phone's native camera app directly
+    #   accept="image/*"      → opens photo gallery (not file manager)
 
-    current_mode = st.session_state["active_mode"]
+    st.markdown("""
+    <style>
+    .upload-btn-row {
+        display: flex;
+        gap: 0.75rem;
+        margin-bottom: 1rem;
+    }
+    .native-file-label {
+        flex: 1;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.55rem;
+        padding: 0.9rem 0.5rem;
+        border-radius: 16px;
+        font-size: 1rem;
+        font-weight: 700;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        min-height: 52px;
+    }
+    .native-file-label.cam-btn {
+        background: linear-gradient(135deg, #2563eb 0%, #7c3aed 100%);
+        color: #fff;
+        border: 1px solid rgba(255,255,255,0.2);
+        box-shadow: 0 4px 22px rgba(37,99,235,0.45);
+    }
+    .native-file-label.cam-btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 30px rgba(124,58,237,0.6);
+    }
+    .native-file-label.gal-btn {
+        background: rgba(23,29,43,0.9);
+        color: #94a3b8;
+        border: 1px solid #232c3d;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+    }
+    .native-file-label.gal-btn:hover {
+        color: #fff;
+        background: #1e2638;
+        border-color: #3b82f6;
+        transform: translateY(-1px);
+    }
+    input[type="file"] { display: none !important; }
+    </style>
 
-    col_cam, col_up = st.columns(2, gap="small")
-    with col_cam:
-        if st.button(
-            "📷 Phone Camera",
-            key="btn_mode_camera",
-            use_container_width=True,
-            type="primary" if current_mode == "camera" else "secondary",
-        ):
-            st.session_state["active_mode"] = "camera"
-            st.rerun()
+    <div class="upload-btn-row">
+        <!-- Camera: capture=environment opens rear camera app directly -->
+        <label class="native-file-label cam-btn" for="cam_input_native">
+            📷 Camera
+        </label>
+        <input type="file" id="cam_input_native" accept="image/*" capture="environment"
+               onchange="handleNativeFile(this,'cam')">
 
-    with col_up:
-        if st.button(
-            "📁 Upload Image (20MB)",
-            key="btn_mode_upload",
-            use_container_width=True,
-            type="primary" if current_mode == "upload" else "secondary",
-        ):
-            st.session_state["active_mode"] = "upload"
-            st.rerun()
+        <!-- Gallery: accept=image/* opens photo gallery, NOT file manager -->
+        <label class="native-file-label gal-btn" for="gal_input_native">
+            🖼️ Gallery
+        </label>
+        <input type="file" id="gal_input_native" accept="image/*"
+               onchange="handleNativeFile(this,'gal')">
+    </div>
 
-    st.markdown("<div style='margin-bottom:0.75rem'></div>", unsafe_allow_html=True)
+    <script>
+    function handleNativeFile(input, src) {
+        if (!input.files || !input.files[0]) return;
+        const file = input.files[0];
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            const b64 = e.target.result.split(',')[1];
+            // Send to Streamlit via query param trick
+            const key = src === 'cam' ? 'cam_b64' : 'gal_b64';
+            window.parent.postMessage({
+                type: 'streamlit:setComponentValue',
+                value: b64
+            }, '*');
+            // Use hidden text_input approach via URL
+            const url = new URL(window.location.href);
+            url.searchParams.set(key, b64.substring(0, 20)); // marker only
+            // Store full b64 in sessionStorage for retrieval
+            sessionStorage.setItem('img_b64', b64);
+            sessionStorage.setItem('img_src', src);
+            // Trigger Streamlit rerun via clicking a hidden button
+            const btn = window.parent.document.querySelector('[data-testid="stHiddenRerunBtn"]');
+            if (btn) btn.click();
+        };
+        reader.readAsDataURL(file);
+    }
+    </script>
+    """, unsafe_allow_html=True)
+
+    # ── Fallback hidden Streamlit uploaders (actual file processing) ──
+    # These are hidden visually; the native buttons above trigger them
+    st.markdown("<style>[data-testid='stFileUploader']{display:none!important}</style>", unsafe_allow_html=True)
+
+    # Camera uploader (hidden, triggered by native camera label click)
+    cam_data = st.file_uploader(
+        "cam_hidden",
+        type=["jpg", "jpeg", "png", "webp", "heic"],
+        key="cam_file_hidden",
+        label_visibility="hidden",
+    )
+
+    # Gallery uploader (hidden, triggered by native gallery label click)
+    gal_data = st.file_uploader(
+        "gal_hidden",
+        type=["jpg", "jpeg", "png", "webp", "heic"],
+        key="gal_file_hidden",
+        label_visibility="hidden",
+    )
+
+    # ── JS Bridge: connect native HTML inputs → hidden Streamlit uploaders ──
+    st.markdown("""
+    <script>
+    (function() {
+        function bridgeInput(nativeId, uploaderId) {
+            const nativeInput = document.getElementById(nativeId);
+            if (!nativeInput) return;
+            nativeInput.addEventListener('change', function() {
+                if (!this.files || !this.files[0]) return;
+                // Find the matching hidden Streamlit file input
+                const allInputs = window.parent.document.querySelectorAll('input[type="file"]');
+                let stInput = null;
+                allInputs.forEach(inp => {
+                    const label = inp.closest('[data-testid="stFileUploader"]');
+                    if (label) {
+                        const txt = label.innerText || '';
+                        if (txt.includes(uploaderId)) stInput = inp;
+                    }
+                });
+                if (stInput) {
+                    const dt = new DataTransfer();
+                    dt.items.add(this.files[0]);
+                    stInput.files = dt.files;
+                    stInput.dispatchEvent(new Event('change', {bubbles: true}));
+                }
+            });
+        }
+        setTimeout(function() {
+            bridgeInput('cam_input_native', 'cam_hidden');
+            bridgeInput('gal_input_native', 'gal_hidden');
+        }, 800);
+    })();
+    </script>
+    """, unsafe_allow_html=True)
 
     img_target: Image.Image | None = None
 
-    if current_mode == "camera":
-        cam_data = st.camera_input("Point camera at ingredient list", label_visibility="collapsed")
-        if cam_data:
-            img_target = Image.open(cam_data)
-    else:
-        up_data = st.file_uploader(
-            "Upload product label (Max 20MB per file)",
-            type=["jpg", "jpeg", "png", "webp", "heic"],
-            label_visibility="collapsed",
-        )
-        if up_data:
-            img_target = Image.open(up_data)
+    if cam_data:
+        img_target = Image.open(cam_data)
+    elif gal_data:
+        img_target = Image.open(gal_data)
 
+    # ── Show image preview + scan button ──
     if img_target:
         st.image(img_target, caption="Captured Label", use_container_width=True)
         if st.button("🔍 Scan & Analyze Label Now", key="btn_scan", type="primary"):

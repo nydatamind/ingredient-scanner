@@ -19,6 +19,7 @@ from io import BytesIO
 from typing import Any, Optional
 
 import google.generativeai as genai
+from google.api_core import exceptions as google_exceptions
 from groq import Groq
 from PIL import Image
 
@@ -130,10 +131,11 @@ def _parse_result(raw_text: str, engine: str) -> dict[str, Any]:
 # ─────────────────────────────────────────────────────────────────────────────
 
 class GeminiEngine:
+    # Latest stable models – v1 API compatible (no v1beta 404 errors)
     MODELS_ORDER = [
-        "gemini-2.5-flash",
-        "gemini-2.0-flash",
-        "gemini-1.5-flash",
+        "gemini-2.5-flash",       # Latest & fastest multimodal
+        "gemini-2.0-flash",       # Stable fallback
+        "gemini-2.0-flash-lite",  # Lightweight fallback
     ]
 
     def __init__(self, api_key: str) -> None:
@@ -152,23 +154,39 @@ class GeminiEngine:
             ),
         )
 
+    def _image_to_bytes(self, image: Image.Image) -> dict:
+        """Convert PIL image to inline bytes dict for Gemini API."""
+        buf = BytesIO()
+        image.save(buf, format="JPEG", quality=90)
+        return {
+            "mime_type": "image/jpeg",
+            "data": base64.b64encode(buf.getvalue()).decode()
+        }
+
     def analyze_image(self, image: Image.Image) -> dict[str, Any]:
-        # Fast resize
+        # Fast resize before sending
         processed_img = _preprocess_image(image)
 
         last_err = None
         for model_name in self.MODELS_ORDER:
             try:
                 model = self._get_model(model_name)
+                # Use inline image bytes (works reliably across all API versions)
+                img_bytes = self._image_to_bytes(processed_img)
                 response = model.generate_content(
-                    [IMAGE_USER_PROMPT, processed_img],
-                    request_options={"timeout": 45},
+                    [
+                        IMAGE_USER_PROMPT,
+                        {"inline_data": img_bytes},
+                    ],
+                    request_options={"timeout": 60},
                 )
                 self.active_model = model_name
+                logger.info("Gemini vision success with model: %s", model_name)
                 return _parse_result(response.text, engine=f"Gemini Vision ({model_name})")
             except Exception as exc:
                 last_err = exc
                 logger.warning("Gemini vision %s failed: %s", model_name, exc)
+                continue
 
         raise RuntimeError(f"Gemini image analysis failed: {last_err}")
 
