@@ -3,319 +3,280 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Camera & Gallery Component</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@600;700;800&display=swap" rel="stylesheet">
+  <title>Camera & Gallery</title>
   <style>
     * {
       margin: 0;
       padding: 0;
       box-sizing: border-box;
-      user-select: none;
-      -webkit-user-select: none;
       -webkit-tap-highlight-color: transparent;
+      user-select: none;
     }
 
     body {
       background: transparent;
-      font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      padding: 4px 2px 8px;
-      overflow: hidden;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
+                   'Plus Jakarta Sans', sans-serif;
+      padding: 4px 0 6px;
     }
 
-    .container {
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-      width: 100%;
-    }
-
-    .btn-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 12px;
-      width: 100%;
-    }
-
-    @media (max-width: 420px) {
-      .btn-grid {
-        gap: 8px;
-      }
-    }
-
-    /* Native file inputs - strictly hidden but fully functional */
-    input[type="file"] {
-      display: none;
+    /* ── True hidden file inputs ── */
+    #cam-input,
+    #gal-input {
       position: absolute;
       left: -9999px;
+      top: -9999px;
+      opacity: 0;
+      width: 0;
+      height: 0;
     }
 
-    /* Interactive Action Labels (Styled as Native App Buttons) */
-    .btn-action {
+    /* ── Button row ── */
+    .btn-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    /* ── Base label-button ── */
+    .btn {
       display: flex;
       align-items: center;
       justify-content: center;
       gap: 8px;
-      padding: 14px 10px;
-      min-height: 52px;
+      padding: 0 12px;
+      height: 52px;
       border-radius: 16px;
       font-size: 15px;
       font-weight: 700;
       letter-spacing: 0.3px;
       cursor: pointer;
-      text-align: center;
-      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-      outline: none;
+      white-space: nowrap;
+      transition: transform 0.15s ease, box-shadow 0.15s ease, filter 0.15s ease;
     }
 
-    /* Camera Button - Glowing Purple-Blue Gradient */
-    .btn-camera {
+    .btn:active {
+      transform: scale(0.96);
+    }
+
+    /* ── Camera – gradient ── */
+    .btn-cam {
       background: linear-gradient(135deg, #2563eb 0%, #7c3aed 100%);
       color: #ffffff;
-      border: 1px solid rgba(255, 255, 255, 0.22);
-      box-shadow: 0 4px 20px rgba(37, 99, 235, 0.45);
+      border: 1px solid rgba(255,255,255,0.2);
+      box-shadow: 0 4px 20px rgba(37,99,235,0.45);
     }
 
-    .btn-camera:active {
-      transform: scale(0.97);
-      box-shadow: 0 2px 10px rgba(37, 99, 235, 0.35);
+    .btn-cam:active {
+      box-shadow: 0 2px 10px rgba(37,99,235,0.3);
       filter: brightness(1.1);
     }
 
-    /* Gallery Button - Dark Glassmorphism */
-    .btn-gallery {
-      background: rgba(23, 29, 43, 0.95);
+    /* ── Gallery – dark glass ── */
+    .btn-gal {
+      background: rgba(23,29,43,0.97);
       color: #cbd5e1;
       border: 1px solid #2a3449;
-      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+      box-shadow: 0 4px 14px rgba(0,0,0,0.35);
     }
 
-    .btn-gallery:active {
-      transform: scale(0.97);
+    .btn-gal:active {
       background: #1e2638;
       color: #ffffff;
       border-color: #3b82f6;
     }
 
-    .btn-icon {
-      font-size: 1.25rem;
-      line-height: 1;
-    }
-
-    .btn-text {
-      font-weight: 700;
-      white-space: nowrap;
-    }
-
-    /* Status Bar */
-    .status-msg {
-      display: none;
+    /* ── Status bar ── */
+    #status {
+      margin-top: 8px;
       font-size: 12px;
       font-weight: 600;
       text-align: center;
       padding: 6px 10px;
       border-radius: 8px;
-      margin-top: 2px;
-      animation: fadeIn 0.2s ease;
+      display: none;
     }
 
-    .status-msg.loading {
+    #status.loading {
       display: block;
-      background: rgba(59, 130, 246, 0.15);
-      border: 1px solid rgba(59, 130, 246, 0.3);
+      background: rgba(59,130,246,0.12);
+      border: 1px solid rgba(59,130,246,0.3);
       color: #93c5fd;
     }
 
-    .status-msg.success {
+    #status.success {
       display: block;
-      background: rgba(16, 185, 129, 0.15);
-      border: 1px solid rgba(16, 185, 129, 0.3);
+      background: rgba(16,185,129,0.12);
+      border: 1px solid rgba(16,185,129,0.3);
       color: #6ee7b7;
-    }
-
-    @keyframes fadeIn {
-      from { opacity: 0; transform: translateY(-3px); }
-      to { opacity: 1; transform: translateY(0); }
     }
   </style>
 </head>
 <body>
-  <div class="container">
-    <!-- Camera: accept="image/*" + capture="environment" opens original native camera app -->
-    <input 
-      type="file" 
-      id="cam-input" 
-      accept="image/*" 
-      capture="environment" 
-    />
 
-    <!-- Gallery: accept="image/*" opens device photo gallery / media picker -->
-    <input 
-      type="file" 
-      id="gal-input" 
-      accept="image/*" 
-    />
+  <!--
+    CAMERA INPUT: accept="image/*" capture="environment"
+      → Android / iOS opens the original native Camera app directly.
+      → User takes photo, taps tick mark ✔ / OK → photo returned to app.
+    GALLERY INPUT: accept="image/*"  (no capture attribute)
+      → Android / iOS opens the Photo Gallery / Media Picker directly.
+      → Does NOT open the generic file manager for documents.
+  -->
+  <input type="file" id="cam-input" accept="image/*" capture="environment">
+  <input type="file" id="gal-input" accept="image/*">
 
-    <div class="btn-grid">
-      <label for="cam-input" class="btn-action btn-camera" id="label-cam">
-        <span class="btn-icon">📷</span>
-        <span class="btn-text">Open Camera</span>
-      </label>
-
-      <label for="gal-input" class="btn-action btn-gallery" id="label-gal">
-        <span class="btn-icon">🖼️</span>
-        <span class="btn-text">Photo Gallery</span>
-      </label>
-    </div>
-
-    <div id="status-bar" class="status-msg"></div>
+  <div class="btn-row">
+    <label for="cam-input" class="btn btn-cam">
+      📷 Camera
+    </label>
+    <label for="gal-input" class="btn btn-gal">
+      🖼️ Gallery
+    </label>
   </div>
 
+  <div id="status"></div>
+
   <script>
-    // Streamlit Component Protocol
-    function sendMessage(type, data) {
-      window.parent.postMessage({
-        isStreamlitMessage: true,
-        type: type,
-        ...data
-      }, "*");
+    // ─────────────────────────────────────────────────────────────────────
+    // Streamlit Component Protocol (bidirectional communication)
+    // ─────────────────────────────────────────────────────────────────────
+
+    var STREAMLIT_ORIGIN = window.location.origin;
+
+    function stPost(msg) {
+      window.parent.postMessage(Object.assign({ isStreamlitMessage: true }, msg), "*");
     }
 
-    function setComponentValue(value) {
-      sendMessage("streamlit:setComponentValue", { value: value });
+    // 1. Announce we are ready (critical – without this Streamlit renders blank)
+    function componentReady() {
+      stPost({ type: "streamlit:componentReady", apiVersion: 1 });
+      setFrameHeight();
     }
 
-    function setFrameHeight(height) {
-      const h = height || document.body.scrollHeight || 75;
-      sendMessage("streamlit:setFrameHeight", { height: h });
+    // 2. Set iframe height so Streamlit sizes the container correctly
+    function setFrameHeight() {
+      var h = document.documentElement.scrollHeight || document.body.scrollHeight || 70;
+      stPost({ type: "streamlit:setFrameHeight", height: h });
     }
 
-    // Streamlit render listener
-    window.addEventListener("message", function(event) {
-      if (event.data && event.data.type === "streamlit:render") {
-        setFrameHeight();
-      }
-    });
+    // 3. Send image data back to Python
+    function sendValue(val) {
+      stPost({ type: "streamlit:setComponentValue", value: val });
+    }
 
-    const statusBar = document.getElementById("status-bar");
+    // ─────────────────────────────────────────────────────────────────────
+    // Status helper
+    // ─────────────────────────────────────────────────────────────────────
+    var statusEl = document.getElementById("status");
 
-    function showStatus(text, type) {
-      statusBar.className = "status-msg " + type;
-      statusBar.innerText = text;
+    function showStatus(text, cls) {
+      statusEl.className = cls;
+      statusEl.textContent = text;
       setFrameHeight();
     }
 
     function hideStatus() {
-      statusBar.className = "status-msg";
-      statusBar.innerText = "";
+      statusEl.className = "";
+      statusEl.textContent = "";
       setFrameHeight();
     }
 
+    // ─────────────────────────────────────────────────────────────────────
+    // File handler: resize → base64 → send to Python
+    // ─────────────────────────────────────────────────────────────────────
     function handleFile(file, source) {
       if (!file) return;
 
-      showStatus("⏳ Loading " + (source === "camera" ? "camera photo" : "gallery image") + "…", "loading");
+      showStatus("⏳ Loading image…", "loading");
 
-      // Read file and optimize with canvas
-      const reader = new FileReader();
-      reader.onload = function(e) {
-        const img = new Image();
-        img.onload = function() {
-          try {
-            // Resize if larger than 1600px max dimension for fast transmission
-            const maxDim = 1600;
-            let w = img.width;
-            let h = img.height;
+      var reader = new FileReader();
 
-            if (w > maxDim || h > maxDim) {
-              if (w > h) {
-                h = Math.round((h * maxDim) / w);
-                w = maxDim;
-              } else {
-                w = Math.round((w * maxDim) / h);
-                h = maxDim;
-              }
-            }
+      reader.onload = function (e) {
+        var img = new Image();
 
-            const canvas = document.createElement("canvas");
-            canvas.width = w;
-            canvas.height = h;
-            const ctx = canvas.getContext("2d");
-            ctx.drawImage(img, 0, 0, w, h);
+        img.onload = function () {
+          var MAX = 1600;
+          var w = img.width, h = img.height;
 
-            // Compress to JPEG 88% quality
-            const base64Data = canvas.toDataURL("image/jpeg", 0.88);
-
-            showStatus("✓ " + (source === "camera" ? "Photo captured" : "Image loaded") + " successfully!", "success");
-
-            // Dispatch to Streamlit Python
-            setComponentValue({
-              data: base64Data,
-              name: file.name || (source === "camera" ? "camera_snap.jpg" : "gallery_image.jpg"),
-              source: source,
-              width: w,
-              height: h,
-              timestamp: Date.now()
-            });
-
-            setTimeout(hideStatus, 2500);
-
-          } catch (err) {
-            console.error("Image processing error:", err);
-            // Fallback to raw base64 data URL
-            setComponentValue({
-              data: e.target.result,
-              name: file.name,
-              source: source,
-              timestamp: Date.now()
-            });
-            hideStatus();
+          if (w > MAX || h > MAX) {
+            if (w >= h) { h = Math.round(h * MAX / w); w = MAX; }
+            else         { w = Math.round(w * MAX / h); h = MAX; }
           }
+
+          var canvas = document.createElement("canvas");
+          canvas.width  = w;
+          canvas.height = h;
+          canvas.getContext("2d").drawImage(img, 0, 0, w, h);
+
+          var b64 = canvas.toDataURL("image/jpeg", 0.88);
+
+          showStatus(
+            source === "camera" ? "✓ Photo captured!" : "✓ Image loaded!",
+            "success"
+          );
+
+          sendValue({
+            data:      b64,
+            source:    source,
+            name:      file.name || (source === "camera" ? "camera.jpg" : "gallery.jpg"),
+            width:     w,
+            height:    h,
+            timestamp: Date.now()
+          });
+
+          setTimeout(hideStatus, 2500);
         };
 
-        img.onerror = function() {
-          showStatus("⚠️ Could not process image. Please try again.", "loading");
+        img.onerror = function () {
+          showStatus("⚠️ Could not read image. Try again.", "loading");
           setTimeout(hideStatus, 3000);
         };
 
         img.src = e.target.result;
       };
 
-      reader.onerror = function() {
-        showStatus("⚠️ Error reading file. Please try again.", "loading");
+      reader.onerror = function () {
+        showStatus("⚠️ File read error. Try again.", "loading");
         setTimeout(hideStatus, 3000);
       };
 
       reader.readAsDataURL(file);
     }
 
-    // Change event on Camera Input
-    document.getElementById("cam-input").addEventListener("change", function(e) {
-      if (e.target.files && e.target.files.length > 0) {
+    // ─────────────────────────────────────────────────────────────────────
+    // Wire up file inputs
+    // ─────────────────────────────────────────────────────────────────────
+    document.getElementById("cam-input").addEventListener("change", function (e) {
+      if (e.target.files && e.target.files[0]) {
         handleFile(e.target.files[0], "camera");
       }
-      e.target.value = ""; // Reset to allow re-capturing
+      e.target.value = "";   // reset so same file can be re-captured
     });
 
-    // Change event on Gallery Input
-    document.getElementById("gal-input").addEventListener("change", function(e) {
-      if (e.target.files && e.target.files.length > 0) {
+    document.getElementById("gal-input").addEventListener("change", function (e) {
+      if (e.target.files && e.target.files[0]) {
         handleFile(e.target.files[0], "gallery");
       }
-      e.target.value = ""; // Reset to allow re-selecting
+      e.target.value = "";   // reset so same image can be re-selected
     });
 
-    // Initial frame height setup
-    window.addEventListener("load", function() {
-      setTimeout(function() {
-        setFrameHeight(75);
-      }, 50);
+    // ─────────────────────────────────────────────────────────────────────
+    // Listen for render event from Streamlit (re-sent on every rerun)
+    // ─────────────────────────────────────────────────────────────────────
+    window.addEventListener("message", function (event) {
+      if (event.data && event.data.type === "streamlit:render") {
+        setFrameHeight();
+      }
     });
 
-    // Fallback resize trigger
-    window.addEventListener("resize", function() {
-      setFrameHeight();
+    // ─────────────────────────────────────────────────────────────────────
+    // Initialise: announce ready as early as possible
+    // ─────────────────────────────────────────────────────────────────────
+    // Try immediately, and again after DOM paint to be safe
+    componentReady();
+    window.addEventListener("load", function () {
+      componentReady();
+      setTimeout(setFrameHeight, 100);
     });
   </script>
 </body>

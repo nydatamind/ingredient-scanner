@@ -39,6 +39,13 @@ st.set_page_config(
     initial_sidebar_state="collapsed",
 )
 
+# ── Declare Native Camera & Gallery Custom Component ─────────────────────────
+_FRONTEND_DIR = Path(__file__).parent / "frontend"
+_camera_gallery = components.declare_component(
+    "camera_gallery_uploader",
+    path=str(_FRONTEND_DIR),
+)
+
 # ─────────────────────────────────────────────────────────────────────────────
 # Ultra-Modern Mobile Theme CSS
 # ─────────────────────────────────────────────────────────────────────────────
@@ -221,7 +228,6 @@ html, body, [class*="css"] {
 .chip-high { background: rgba(239,68,68,0.18); color: #f87171; }
 
 /* ── Ultra-Modern Button Redesign ── */
-/* Primary Action Buttons (Glowing Gradient) */
 div[data-testid="stButton"] button[kind="primary"],
 .btn-primary-custom button {
     background: linear-gradient(135deg, #2563eb 0%, #7c3aed 100%) !important;
@@ -245,7 +251,6 @@ div[data-testid="stButton"] button[kind="primary"]:hover,
     border-color: rgba(255,255,255,0.4) !important;
 }
 
-/* Secondary / Inactive Mode Buttons (Glassmorphic) */
 div[data-testid="stButton"] button[kind="secondary"],
 .btn-secondary-custom button {
     background: rgba(23, 29, 43, 0.9) !important;
@@ -507,40 +512,6 @@ def main() -> None:
     st.markdown("""
     <div class="hero-box">
         <h1 class="hero-title">🔬 Ingredient Safety Scanner</h1>
-        <p class="hero-subtitle">Capture or upload any product label for instant safety analysis</p>
-    </div>
-    """, unsafe_allow_html=True)
-
-    # Initialize AI
-    ai = get_ai_engine(custom_gemini, custom_groq)
-
-    if ai is None:
-        st.markdown("""
-        <div class="allergen-banner" style="color:#fde047;border-color:#f59e0b">
-            ⚠️ <strong>API Key Required</strong><br>
-            Please configure GEMINI_API_KEY in your environment or Streamlit Secrets.
-        </div>
-        """, unsafe_allow_html=True)
-        st.stop()
-
-# ── Native Camera & Gallery Component Declaration ───────────────────────────
-FRONTEND_DIR = Path(__file__).parent / "frontend"
-camera_gallery_uploader = components.declare_component(
-    "camera_gallery_uploader",
-    path=str(FRONTEND_DIR),
-)
-
-
-def main() -> None:
-    st.markdown(CUSTOM_CSS, unsafe_allow_html=True)
-
-    # Sidebar
-    custom_gemini, custom_groq = render_sidebar()
-
-    # Clean Header
-    st.markdown("""
-    <div class="hero-box">
-        <h1 class="hero-title">🔬 Ingredient Safety Scanner</h1>
         <p class="hero-subtitle">Capture with your Phone Camera or choose from Gallery for instant analysis</p>
     </div>
     """, unsafe_allow_html=True)
@@ -557,17 +528,18 @@ def main() -> None:
         """, unsafe_allow_html=True)
         st.stop()
 
-    # ── Native Camera & Gallery Trigger Component ──
-    # Tapping Camera opens original device camera app (with tick mark confirm).
-    # Tapping Gallery opens the device's photo gallery / media picker directly.
-    uploader_val = camera_gallery_uploader(key="native_cam_gal_uploader")
+    # ── Native Camera & Gallery Custom Component ──────────────────────────────
+    # Camera button  → opens phone's original camera app (take photo → tick ✔)
+    # Gallery button → opens device photo gallery / media picker directly
+    uploader_val = _camera_gallery(key="native_cam_gal")
 
-    # Handle incoming image from custom component
+    # ── Process image received from the component ─────────────────────────────
     if uploader_val and isinstance(uploader_val, dict):
         ts = uploader_val.get("timestamp")
         if ts and ts != st.session_state.get("_last_img_ts"):
             st.session_state["_last_img_ts"] = ts
             raw_b64 = uploader_val.get("data", "")
+            # Strip the data URL prefix (e.g. "data:image/jpeg;base64,")
             if "," in raw_b64:
                 raw_b64 = raw_b64.split(",", 1)[1]
             try:
@@ -575,54 +547,47 @@ def main() -> None:
                 img = Image.open(io.BytesIO(img_bytes)).convert("RGB")
                 st.session_state["active_image"] = img
                 st.session_state["active_source"] = uploader_val.get("source", "camera")
-                st.session_state.pop("scan_data", None)  # Reset previous scan
+                st.session_state.pop("scan_data", None)
                 st.rerun()
             except Exception as e:
                 st.error(f"Could not load image: {e}")
 
-    # ── Desktop / Alternative Drag & Drop Fallback (Optional) ──
-    with st.expander("📁 Alternative File Upload (Desktop / Drag & Drop)", expanded=False):
-        fallback_file = st.file_uploader(
-            "Choose an image file",
-            type=["jpg", "jpeg", "png", "webp", "heic"],
-            key="desktop_file_fallback",
-        )
-        if fallback_file is not None:
-            if st.session_state.get("_fallback_name") != fallback_file.name:
-                st.session_state["_fallback_name"] = fallback_file.name
-                st.session_state["active_image"] = Image.open(fallback_file).convert("RGB")
-                st.session_state["active_source"] = "upload"
-                st.session_state.pop("scan_data", None)
-                st.rerun()
+    # ── Active Image Preview & Scan ───────────────────────────────────────────
+    active_img: Image.Image | None = st.session_state.get("active_image")
 
-    # ── Active Image Preview & Scan Action ──
-    active_img = st.session_state.get("active_image")
     if active_img is not None:
-        source_label = "📷 Captured from Phone Camera" if st.session_state.get("active_source") == "camera" else "🖼️ Selected from Gallery"
-        
+        source = st.session_state.get("active_source", "camera")
+        source_label = "📷 Captured from Phone Camera" if source == "camera" else "🖼️ Selected from Gallery"
+
         st.markdown(f"""
-        <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:18px;padding:1rem;margin:1rem 0;text-align:center;">
-            <div style="font-size:0.85rem;font-weight:700;color:#60a5fa;margin-bottom:0.6rem;letter-spacing:0.5px;">
+        <div style="background:var(--bg-card);border:1px solid #3b82f6;border-radius:14px;
+                    padding:0.65rem 1rem;margin:0.8rem 0 0.6rem;text-align:center;">
+            <span style="font-size:0.82rem;font-weight:700;color:#60a5fa;letter-spacing:0.5px;">
                 {source_label}
-            </div>
+            </span>
         </div>
         """, unsafe_allow_html=True)
-        
-        st.image(active_img, caption="Product Label Ready for Analysis", use_container_width=True)
+
+        st.image(active_img, caption="Product Label – Ready for Analysis", use_container_width=True)
 
         col1, col2 = st.columns([3, 1])
         with col1:
-            btn_scan = st.button("🔍 Scan & Analyze Label Now", key="btn_scan_trigger", type="primary", use_container_width=True)
+            btn_scan = st.button(
+                "🔍 Scan & Analyze Label Now",
+                key="btn_scan_trigger",
+                type="primary",
+                use_container_width=True,
+            )
         with col2:
             if st.button("🔄 Retake", key="btn_retake", type="secondary", use_container_width=True):
                 st.session_state.pop("active_image", None)
                 st.session_state.pop("scan_data", None)
                 st.session_state.pop("_last_img_ts", None)
+                st.session_state.pop("_fallback_name", None)
                 st.rerun()
 
         if btn_scan:
             with st.spinner("🔬 Reading label with Gemini Vision OCR…"):
-                start = time.time()
                 try:
                     res = ai.analyze_image(active_img)
                     st.session_state["scan_data"] = res
@@ -632,12 +597,12 @@ def main() -> None:
                     with st.expander("Details"):
                         st.code(traceback.format_exc())
 
-    # Results Display
+    # ── Results Display ───────────────────────────────────────────────────────
     if "scan_data" in st.session_state:
         st.markdown("<hr style='border:none;border-top:1px solid #232c3d;margin:1.4rem 0;'>", unsafe_allow_html=True)
         render_results(st.session_state["scan_data"])
 
-    # Bottom Developer Banner
+    # ── Bottom Developer Banner ───────────────────────────────────────────────
     st.markdown("""
     <div class="dev-banner">
         <span class="dev-badge">⚡ DEVELOPED BY NITIN YADAV</span>
