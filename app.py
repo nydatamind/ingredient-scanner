@@ -16,6 +16,7 @@ import traceback
 from typing import Any
 
 import streamlit as st
+import streamlit.components.v1 as components
 from dotenv import load_dotenv
 from PIL import Image
 
@@ -522,54 +523,144 @@ def main() -> None:
         """, unsafe_allow_html=True)
         st.stop()
 
-    # ── Camera & Gallery — 2 clean buttons, native mobile pickers ──
-    # CSS: style the file uploader browse buttons to look premium
+    # ── Native Android Camera + Gallery ──
+    # Hidden file uploaders (actual data goes through these)
+    # CSS hides them; our custom JS buttons click them programmatically
     st.markdown("""
     <style>
-    /* Hide default uploader drag-drop zone, keep only the button */
-    [data-testid="stFileUploader"] section {
-        display: none !important;
-    }
-    [data-testid="stFileUploader"] {
-        background: transparent !important;
-        border: none !important;
-        padding: 0 !important;
-    }
-    /* Style the Browse button itself */
-    [data-testid="stFileUploaderDropzoneInstructions"] { display: none !important; }
-    [data-testid="baseButton-secondary"][aria-label*="cam"] {
-        background: linear-gradient(135deg, #2563eb 0%, #7c3aed 100%) !important;
-        color: #fff !important;
-        border: 1px solid rgba(255,255,255,0.2) !important;
-        border-radius: 16px !important;
-        font-size: 1rem !important;
-        font-weight: 700 !important;
-        min-height: 52px !important;
-        width: 100% !important;
-        box-shadow: 0 4px 22px rgba(37,99,235,0.45) !important;
+    /* Completely hide both file uploaders - our custom buttons will trigger them */
+    div[data-testid="stFileUploader"] {
+        position: absolute !important;
+        opacity: 0 !important;
+        pointer-events: none !important;
+        width: 1px !important;
+        height: 1px !important;
+        overflow: hidden !important;
     }
     </style>
     """, unsafe_allow_html=True)
 
-    col_cam, col_gal = st.columns(2, gap="small")
+    # Hidden uploader 1 — Camera (capture=environment will be set by JS)
+    cam_data = st.file_uploader(
+        "cam_upload",
+        type=["jpg", "jpeg", "png", "webp", "heic"],
+        key="cam_file_upload",
+        label_visibility="hidden",
+    )
+    # Hidden uploader 2 — Gallery
+    gal_data = st.file_uploader(
+        "gal_upload",
+        type=["jpg", "jpeg", "png", "webp", "heic"],
+        key="gal_file_upload",
+        label_visibility="hidden",
+    )
 
-    with col_cam:
-        # capture=True → on Android/iPhone opens NATIVE camera app directly
-        cam_data = st.camera_input(
-            "📷 Camera",
-            key="cam_input_main",
-            label_visibility="collapsed",
-        )
+    # ── Beautiful Native Buttons via components.html() ──
+    # This runs in a same-origin iframe → can access window.parent.document
+    # Camera btn: sets capture="environment" → opens native Android camera app
+    # Gallery btn: removes capture attr → opens photo gallery directly
+    components.html("""
+    <!DOCTYPE html>
+    <html>
+    <head>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      body { background: transparent; font-family: 'Segoe UI', sans-serif; }
+      .row {
+        display: flex;
+        gap: 12px;
+        padding: 4px 2px;
+      }
+      .btn {
+        flex: 1;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        padding: 14px 10px;
+        border-radius: 16px;
+        border: none;
+        cursor: pointer;
+        font-size: 15px;
+        font-weight: 700;
+        letter-spacing: 0.3px;
+        transition: all 0.2s ease;
+        -webkit-tap-highlight-color: transparent;
+        min-height: 52px;
+      }
+      .btn-cam {
+        background: linear-gradient(135deg, #2563eb 0%, #7c3aed 100%);
+        color: #ffffff;
+        box-shadow: 0 4px 22px rgba(37,99,235,0.5);
+        border: 1px solid rgba(255,255,255,0.2);
+      }
+      .btn-cam:active {
+        transform: scale(0.97);
+        box-shadow: 0 2px 12px rgba(37,99,235,0.4);
+      }
+      .btn-gal {
+        background: rgba(23,29,43,0.95);
+        color: #94a3b8;
+        border: 1px solid #232c3d;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+      }
+      .btn-gal:active {
+        transform: scale(0.97);
+        background: #1e2638;
+        color: #fff;
+        border-color: #3b82f6;
+      }
+    </style>
+    </head>
+    <body>
+    <div class="row">
+      <button class="btn btn-cam" onclick="openNativeInput('cam')">📷 Camera</button>
+      <button class="btn btn-gal" onclick="openNativeInput('gal')">🖼️ Upload Photo</button>
+    </div>
+    <script>
+    function openNativeInput(type) {
+      try {
+        // Get all hidden file inputs from parent Streamlit frame
+        var parentDoc = window.parent.document;
+        var fileInputs = parentDoc.querySelectorAll('input[type="file"]');
 
-    with col_gal:
-        # accept image/* → on mobile shows photo gallery (not full file manager)
-        gal_data = st.file_uploader(
-            "🖼️ Upload Photo",
-            type=["jpg", "jpeg", "png", "webp", "heic"],
-            key="gal_file_main",
-            label_visibility="collapsed",
-            accept_multiple_files=False,
-        )
+        if (!fileInputs || fileInputs.length === 0) {
+          alert('Upload inputs not found. Please refresh the page.');
+          return;
+        }
+
+        // First input = camera uploader, second = gallery uploader
+        var inp = (type === 'cam') ? fileInputs[0] : (fileInputs[1] || fileInputs[0]);
+
+        if (type === 'cam') {
+          // capture=environment → Android opens NATIVE CAMERA APP directly
+          inp.setAttribute('capture', 'environment');
+        } else {
+          // No capture → Android shows PHOTO GALLERY
+          inp.removeAttribute('capture');
+        }
+
+        // Make it briefly interactable, click, then re-hide
+        inp.style.setProperty('position', 'fixed', 'important');
+        inp.style.setProperty('opacity', '0', 'important');
+        inp.style.setProperty('pointer-events', 'auto', 'important');
+        inp.style.setProperty('width', '1px', 'important');
+        inp.style.setProperty('height', '1px', 'important');
+        inp.style.setProperty('top', '0', 'important');
+        inp.style.setProperty('left', '0', 'important');
+        inp.click();
+
+      } catch(e) {
+        console.error('Camera/Gallery open failed:', e);
+        // Fallback: show error info
+        alert('Could not open. Please try refreshing the page. Error: ' + e.message);
+      }
+    }
+    </script>
+    </body>
+    </html>
+    """, height=72, scrolling=False)
 
     img_target: Image.Image | None = None
 

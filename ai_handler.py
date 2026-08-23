@@ -131,11 +131,11 @@ def _parse_result(raw_text: str, engine: str) -> dict[str, Any]:
 # ─────────────────────────────────────────────────────────────────────────────
 
 class GeminiEngine:
-    # Latest stable models – v1 API compatible (no v1beta 404 errors)
+    # Latest stable models — updated Aug 2026
     MODELS_ORDER = [
-        "gemini-2.5-flash",       # Latest & fastest multimodal
-        "gemini-2.0-flash",       # Stable fallback
-        "gemini-2.0-flash-lite",  # Lightweight fallback
+        "gemini-2.5-flash",      # Latest & fastest multimodal (primary)
+        "gemini-2.0-flash",      # Stable fallback
+        "gemini-3.5-flash-lite", # Lightweight fallback (replaces deprecated 2.0-flash-lite)
     ]
 
     def __init__(self, api_key: str) -> None:
