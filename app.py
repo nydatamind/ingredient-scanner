@@ -472,7 +472,10 @@ def render_sidebar() -> tuple[str, str]:
         if ai:
             info = ai.get_status_info()
             g_icon = "🟢" if info["gemini_available"] else "🔴"
-            st.markdown(f"{g_icon} **Vision Model**: `{info['gemini_model']}`")
+            q_icon = "⚡" if info.get("groq_available") else "⭕"
+            st.markdown(f"{g_icon} **Gemini**: `{info['gemini_model']}`")
+            st.markdown(f"{q_icon} **Groq**: `{info.get('groq_model', 'Not configured')}`")
+            st.markdown(f"🔄 **Pipeline**: `{info.get('pipeline', 'Gemini Vision')}`")
 
         st.divider()
 
@@ -515,6 +518,28 @@ def main() -> None:
         <p class="hero-subtitle">Capture with your Phone Camera or choose from Gallery for instant analysis</p>
     </div>
     """, unsafe_allow_html=True)
+
+    # ── Language Selector ────────────────────────────────────────────────────
+    st.markdown("""
+    <div style="text-align:center;margin:-0.4rem 0 0.6rem;">
+        <span style="font-size:0.78rem;color:#64748b;font-weight:600;letter-spacing:0.8px;text-transform:uppercase;">🌐 Response Language</span>
+    </div>
+    """, unsafe_allow_html=True)
+    lang_col1, lang_col2, lang_col3 = st.columns(3)
+    if "language" not in st.session_state:
+        st.session_state["language"] = "Hinglish"
+    with lang_col1:
+        if st.button("🇬🇧 English",  key="lang_en",  use_container_width=True,
+                     type="primary" if st.session_state["language"] == "English"  else "secondary"):
+            st.session_state["language"] = "English";  st.rerun()
+    with lang_col2:
+        if st.button("🇮🇳 Hindi",    key="lang_hi",  use_container_width=True,
+                     type="primary" if st.session_state["language"] == "Hindi"    else "secondary"):
+            st.session_state["language"] = "Hindi";    st.rerun()
+    with lang_col3:
+        if st.button("🔀 Hinglish",  key="lang_hl",  use_container_width=True,
+                     type="primary" if st.session_state["language"] == "Hinglish" else "secondary"):
+            st.session_state["language"] = "Hinglish"; st.rerun()
 
     # Initialize AI
     ai = get_ai_engine(custom_gemini, custom_groq)
@@ -587,9 +612,15 @@ def main() -> None:
                 st.rerun()
 
         if btn_scan:
-            with st.spinner("🔬 Reading label with Gemini Vision OCR…"):
+            lang = st.session_state.get("language", "Hinglish")
+            spinner_msg = {
+                "English":  "🔬 Scanning label with Gemini Vision + Groq AI…",
+                "Hindi":    "🔬 Gemini Vision + Groq AI से label scan हो रहा है…",
+                "Hinglish": "🔬 Gemini Vision + Groq AI se label scan ho raha hai…",
+            }.get(lang, "🔬 Scanning…")
+            with st.spinner(spinner_msg):
                 try:
-                    res = ai.analyze_image(active_img)
+                    res = ai.analyze_image(active_img, language=lang)
                     st.session_state["scan_data"] = res
                     st.rerun()
                 except Exception as exc:
