@@ -265,11 +265,12 @@ class GeminiEngine:
 # ─────────────────────────────────────────────────────────────────────────────
 
 class GroqEngine:
-    # Fastest Groq models for structured JSON output — ordered best first
+    # Active Groq models for structured JSON output — ordered best first
     TEXT_MODELS = [
-        "llama-3.3-70b-versatile",       # Best accuracy + speed
-        "llama3-8b-8192",                # Ultra-fast lightweight
-        "mixtral-8x7b-32768",            # Long context fallback
+        "openai/gpt-oss-120b",           # Highest quality structured reasoning
+        "openai/gpt-oss-20b",            # Ultra-fast lightweight
+        "groq/compound",                 # Built-in fast Groq compound engine
+        "groq/compound-mini",            # Lightweight compound engine
     ]
 
     def __init__(self, api_key: str) -> None:
