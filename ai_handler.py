@@ -4,7 +4,8 @@ ai_handler.py
 Multi-model AI routing engine for the Ingredient Safety Scanner.
 DEVELOPED BY NITIN YADAV
 
-Optimized for ultra-fast Vision OCR & safety evaluation with Google Gemini & Groq fallback.
+Optimized for ultra-fast Vision OCR & safety evaluation with Google Gemini.
+Uses the new google-genai SDK (replaces deprecated google-generativeai).
 """
 
 from __future__ import annotations
@@ -18,9 +19,8 @@ import textwrap
 from io import BytesIO
 from typing import Any, Optional
 
-import google.generativeai as genai
-from google.api_core import exceptions as google_exceptions
-from groq import Groq
+from google import genai
+from google.genai import types as genai_types
 from PIL import Image
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -127,62 +127,77 @@ def _parse_result(raw_text: str, engine: str) -> dict[str, Any]:
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Gemini Engine (Vision + OCR)
+# Gemini Engine (Vision + OCR) — using new google-genai SDK
 # ─────────────────────────────────────────────────────────────────────────────
 
 class GeminiEngine:
-    # Latest stable models — updated Aug 2026
+    # Models verified available via genai.list_models() — Aug 2026
     MODELS_ORDER = [
-        "gemini-2.5-flash",      # Latest & fastest multimodal (primary)
-        "gemini-2.0-flash",      # Stable fallback
-        "gemini-3.5-flash-lite", # Lightweight fallback (replaces deprecated 2.0-flash-lite)
+        "gemini-2.5-flash",       # Primary: latest & fastest multimodal
+        "gemini-2.5-flash-lite",  # Fast & cheap fallback
+        "gemini-3.5-flash",       # Next-gen stable fallback
+        "gemini-3.5-flash-lite",  # Lightweight fallback
+        "gemini-flash-latest",    # Always-latest alias
     ]
 
     def __init__(self, api_key: str) -> None:
         if not api_key:
             raise ValueError("GEMINI_API_KEY is not set.")
-        genai.configure(api_key=api_key)
+        self._client = genai.Client(api_key=api_key)
         self.active_model = self.MODELS_ORDER[0]
 
-    def _get_model(self, model_name: str) -> genai.GenerativeModel:
-        return genai.GenerativeModel(
-            model_name=model_name,
-            system_instruction=SYSTEM_PROMPT,
-            generation_config=genai.GenerationConfig(
-                temperature=0.1,
-                max_output_tokens=2200,
-            ),
-        )
-
-    def _image_to_bytes(self, image: Image.Image) -> dict:
-        """Convert PIL image to inline bytes dict for Gemini API."""
+    def _image_to_bytes(self, image: Image.Image) -> bytes:
+        """Convert PIL image to JPEG bytes."""
         buf = BytesIO()
         image.save(buf, format="JPEG", quality=90)
-        return {
-            "mime_type": "image/jpeg",
-            "data": base64.b64encode(buf.getvalue()).decode()
-        }
+        return buf.getvalue()
 
     def analyze_image(self, image: Image.Image) -> dict[str, Any]:
         # Fast resize before sending
         processed_img = _preprocess_image(image)
+        img_bytes = self._image_to_bytes(processed_img)
 
         last_err = None
         for model_name in self.MODELS_ORDER:
             try:
-                model = self._get_model(model_name)
-                # Use inline image bytes (works reliably across all API versions)
-                img_bytes = self._image_to_bytes(processed_img)
-                response = model.generate_content(
-                    [
+                response = self._client.models.generate_content(
+                    model=model_name,
+                    contents=[
                         IMAGE_USER_PROMPT,
-                        {"inline_data": img_bytes},
+                        genai_types.Part.from_bytes(
+                            data=img_bytes,
+                            mime_type="image/jpeg",
+                        ),
                     ],
-                    request_options={"timeout": 60},
+                    config=genai_types.GenerateContentConfig(
+                        system_instruction=SYSTEM_PROMPT,
+                        temperature=0.1,
+                        max_output_tokens=2200,
+                        # Disable automatic function calling to avoid SDK warnings
+                        automatic_function_calling=genai_types.AutomaticFunctionCallingConfig(
+                            disable=True
+                        ),
+                    ),
                 )
+
+                # Safely extract text from response
+                raw_text = response.text
+                if raw_text is None:
+                    # Fallback: concatenate all text parts manually
+                    parts = []
+                    for cand in (response.candidates or []):
+                        for part in (cand.content.parts or []):
+                            if hasattr(part, "text") and part.text:
+                                parts.append(part.text)
+                    raw_text = "".join(parts)
+
+                if not raw_text:
+                    raise ValueError("Empty response from model")
+
                 self.active_model = model_name
                 logger.info("Gemini vision success with model: %s", model_name)
-                return _parse_result(response.text, engine=f"Gemini Vision ({model_name})")
+                return _parse_result(raw_text, engine=f"Gemini Vision ({model_name})")
+
             except Exception as exc:
                 last_err = exc
                 logger.warning("Gemini vision %s failed: %s", model_name, exc)
