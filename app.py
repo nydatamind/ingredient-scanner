@@ -523,160 +523,108 @@ def main() -> None:
         """, unsafe_allow_html=True)
         st.stop()
 
-    # ── Native Android Camera + Gallery ──
-    # Hidden file uploaders (actual data goes through these)
-    # CSS hides them; our custom JS buttons click them programmatically
+# ── Native Camera & Gallery Component Declaration ───────────────────────────
+FRONTEND_DIR = Path(__file__).parent / "frontend"
+camera_gallery_uploader = components.declare_component(
+    "camera_gallery_uploader",
+    path=str(FRONTEND_DIR),
+)
+
+
+def main() -> None:
+    st.markdown(CUSTOM_CSS, unsafe_allow_html=True)
+
+    # Sidebar
+    custom_gemini, custom_groq = render_sidebar()
+
+    # Clean Header
     st.markdown("""
-    <style>
-    /* Completely hide both file uploaders - our custom buttons will trigger them */
-    div[data-testid="stFileUploader"] {
-        position: absolute !important;
-        opacity: 0 !important;
-        pointer-events: none !important;
-        width: 1px !important;
-        height: 1px !important;
-        overflow: hidden !important;
-    }
-    </style>
+    <div class="hero-box">
+        <h1 class="hero-title">🔬 Ingredient Safety Scanner</h1>
+        <p class="hero-subtitle">Capture with your Phone Camera or choose from Gallery for instant analysis</p>
+    </div>
     """, unsafe_allow_html=True)
 
-    # Hidden uploader 1 — Camera (capture=environment will be set by JS)
-    cam_data = st.file_uploader(
-        "cam_upload",
-        type=["jpg", "jpeg", "png", "webp", "heic"],
-        key="cam_file_upload",
-        label_visibility="hidden",
-    )
-    # Hidden uploader 2 — Gallery
-    gal_data = st.file_uploader(
-        "gal_upload",
-        type=["jpg", "jpeg", "png", "webp", "heic"],
-        key="gal_file_upload",
-        label_visibility="hidden",
-    )
+    # Initialize AI
+    ai = get_ai_engine(custom_gemini, custom_groq)
 
-    # ── Beautiful Native Buttons via components.html() ──
-    # This runs in a same-origin iframe → can access window.parent.document
-    # Camera btn: sets capture="environment" → opens native Android camera app
-    # Gallery btn: removes capture attr → opens photo gallery directly
-    components.html("""
-    <!DOCTYPE html>
-    <html>
-    <head>
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <style>
-      * { margin: 0; padding: 0; box-sizing: border-box; }
-      body { background: transparent; font-family: 'Segoe UI', sans-serif; }
-      .row {
-        display: flex;
-        gap: 12px;
-        padding: 4px 2px;
-      }
-      .btn {
-        flex: 1;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        gap: 8px;
-        padding: 14px 10px;
-        border-radius: 16px;
-        border: none;
-        cursor: pointer;
-        font-size: 15px;
-        font-weight: 700;
-        letter-spacing: 0.3px;
-        transition: all 0.2s ease;
-        -webkit-tap-highlight-color: transparent;
-        min-height: 52px;
-      }
-      .btn-cam {
-        background: linear-gradient(135deg, #2563eb 0%, #7c3aed 100%);
-        color: #ffffff;
-        box-shadow: 0 4px 22px rgba(37,99,235,0.5);
-        border: 1px solid rgba(255,255,255,0.2);
-      }
-      .btn-cam:active {
-        transform: scale(0.97);
-        box-shadow: 0 2px 12px rgba(37,99,235,0.4);
-      }
-      .btn-gal {
-        background: rgba(23,29,43,0.95);
-        color: #94a3b8;
-        border: 1px solid #232c3d;
-        box-shadow: 0 2px 10px rgba(0,0,0,0.3);
-      }
-      .btn-gal:active {
-        transform: scale(0.97);
-        background: #1e2638;
-        color: #fff;
-        border-color: #3b82f6;
-      }
-    </style>
-    </head>
-    <body>
-    <div class="row">
-      <button class="btn btn-cam" onclick="openNativeInput('cam')">📷 Camera</button>
-      <button class="btn btn-gal" onclick="openNativeInput('gal')">🖼️ Upload Photo</button>
-    </div>
-    <script>
-    function openNativeInput(type) {
-      try {
-        // Get all hidden file inputs from parent Streamlit frame
-        var parentDoc = window.parent.document;
-        var fileInputs = parentDoc.querySelectorAll('input[type="file"]');
+    if ai is None:
+        st.markdown("""
+        <div class="allergen-banner" style="color:#fde047;border-color:#f59e0b">
+            ⚠️ <strong>API Key Required</strong><br>
+            Please configure GEMINI_API_KEY in your environment or Streamlit Secrets.
+        </div>
+        """, unsafe_allow_html=True)
+        st.stop()
 
-        if (!fileInputs || fileInputs.length === 0) {
-          alert('Upload inputs not found. Please refresh the page.');
-          return;
-        }
+    # ── Native Camera & Gallery Trigger Component ──
+    # Tapping Camera opens original device camera app (with tick mark confirm).
+    # Tapping Gallery opens the device's photo gallery / media picker directly.
+    uploader_val = camera_gallery_uploader(key="native_cam_gal_uploader")
 
-        // First input = camera uploader, second = gallery uploader
-        var inp = (type === 'cam') ? fileInputs[0] : (fileInputs[1] || fileInputs[0]);
+    # Handle incoming image from custom component
+    if uploader_val and isinstance(uploader_val, dict):
+        ts = uploader_val.get("timestamp")
+        if ts and ts != st.session_state.get("_last_img_ts"):
+            st.session_state["_last_img_ts"] = ts
+            raw_b64 = uploader_val.get("data", "")
+            if "," in raw_b64:
+                raw_b64 = raw_b64.split(",", 1)[1]
+            try:
+                img_bytes = base64.b64decode(raw_b64)
+                img = Image.open(io.BytesIO(img_bytes)).convert("RGB")
+                st.session_state["active_image"] = img
+                st.session_state["active_source"] = uploader_val.get("source", "camera")
+                st.session_state.pop("scan_data", None)  # Reset previous scan
+                st.rerun()
+            except Exception as e:
+                st.error(f"Could not load image: {e}")
 
-        if (type === 'cam') {
-          // capture=environment → Android opens NATIVE CAMERA APP directly
-          inp.setAttribute('capture', 'environment');
-        } else {
-          // No capture → Android shows PHOTO GALLERY
-          inp.removeAttribute('capture');
-        }
+    # ── Desktop / Alternative Drag & Drop Fallback (Optional) ──
+    with st.expander("📁 Alternative File Upload (Desktop / Drag & Drop)", expanded=False):
+        fallback_file = st.file_uploader(
+            "Choose an image file",
+            type=["jpg", "jpeg", "png", "webp", "heic"],
+            key="desktop_file_fallback",
+        )
+        if fallback_file is not None:
+            if st.session_state.get("_fallback_name") != fallback_file.name:
+                st.session_state["_fallback_name"] = fallback_file.name
+                st.session_state["active_image"] = Image.open(fallback_file).convert("RGB")
+                st.session_state["active_source"] = "upload"
+                st.session_state.pop("scan_data", None)
+                st.rerun()
 
-        // Make it briefly interactable, click, then re-hide
-        inp.style.setProperty('position', 'fixed', 'important');
-        inp.style.setProperty('opacity', '0', 'important');
-        inp.style.setProperty('pointer-events', 'auto', 'important');
-        inp.style.setProperty('width', '1px', 'important');
-        inp.style.setProperty('height', '1px', 'important');
-        inp.style.setProperty('top', '0', 'important');
-        inp.style.setProperty('left', '0', 'important');
-        inp.click();
+    # ── Active Image Preview & Scan Action ──
+    active_img = st.session_state.get("active_image")
+    if active_img is not None:
+        source_label = "📷 Captured from Phone Camera" if st.session_state.get("active_source") == "camera" else "🖼️ Selected from Gallery"
+        
+        st.markdown(f"""
+        <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:18px;padding:1rem;margin:1rem 0;text-align:center;">
+            <div style="font-size:0.85rem;font-weight:700;color:#60a5fa;margin-bottom:0.6rem;letter-spacing:0.5px;">
+                {source_label}
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        st.image(active_img, caption="Product Label Ready for Analysis", use_container_width=True)
 
-      } catch(e) {
-        console.error('Camera/Gallery open failed:', e);
-        // Fallback: show error info
-        alert('Could not open. Please try refreshing the page. Error: ' + e.message);
-      }
-    }
-    </script>
-    </body>
-    </html>
-    """, height=72, scrolling=False)
+        col1, col2 = st.columns([3, 1])
+        with col1:
+            btn_scan = st.button("🔍 Scan & Analyze Label Now", key="btn_scan_trigger", type="primary", use_container_width=True)
+        with col2:
+            if st.button("🔄 Retake", key="btn_retake", type="secondary", use_container_width=True):
+                st.session_state.pop("active_image", None)
+                st.session_state.pop("scan_data", None)
+                st.session_state.pop("_last_img_ts", None)
+                st.rerun()
 
-    img_target: Image.Image | None = None
-
-    if cam_data:
-        img_target = Image.open(cam_data)
-    elif gal_data:
-        img_target = Image.open(gal_data)
-
-    # ── Show image preview + scan button ──
-    if img_target:
-        st.image(img_target, caption="Captured Label", use_container_width=True)
-        if st.button("🔍 Scan & Analyze Label Now", key="btn_scan", type="primary"):
+        if btn_scan:
             with st.spinner("🔬 Reading label with Gemini Vision OCR…"):
                 start = time.time()
                 try:
-                    res = ai.analyze_image(img_target)
+                    res = ai.analyze_image(active_img)
                     st.session_state["scan_data"] = res
                     st.rerun()
                 except Exception as exc:
