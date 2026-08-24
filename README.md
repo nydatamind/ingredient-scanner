@@ -1,19 +1,19 @@
-# 🔬 Ingredient Safety Scanner
+# 🔬 NutriScan · NY
 
 ### ⚡ DEVELOPED BY NITIN YADAV
 
-A production-ready, mobile-first **Ingredient Safety Scanner** web application powered by **Google Gemini** (Vision OCR & Multimodal Safety Parsing) and **Groq Cloud LLMs** (Ultra-Fast LLaMA 3.3/3.1 Analysis) with automated zero-downtime failover.
+A production-ready, mobile-first **NutriScan · NY** web application providing instant, deterministic food ingredient safety analysis, additive classification, and allergen detection.
 
 ---
 
-## 📱 Mobile-First Features
+## 📱 Features
 
-- 📷 **Instant Smartphone Camera Scan**: Capture any food or cosmetic label directly from your phone.
-- ✍️ **Paste Ingredient Text**: Instant analysis via Groq LLaMA models.
-- 🛡️ **A–D Safety Grade & Radar**: Color-coded safety badge (A: Excellent, B: Good, C: Caution, D: Hazardous).
-- 🧪 **Detailed Risk Breakdown**: Breakdown per ingredient with side effects and regulatory status.
-- ⚠️ **Allergen Alert System**: Highlights common and hidden allergens automatically.
-- 🔄 **Smart Multi-Model Routing**: Auto-failover across Gemini & Groq models to ensure 100% uptime.
+- 📷 **Instant Camera & Gallery Scan**: Capture or choose a label photo with automatic one-touch instant analysis.
+- 🛡️ **Deterministic Safety Grading (A–D)**: Fixed rule-based scoring (A: Excellent, B: Good, C: Caution, D: Hazardous).
+- 🧪 **Detailed Risk Breakdown**: Breakdown per ingredient with side effects, regulatory status, and INS/E-number mapping.
+- ⚠️ **Allergen Alert System**: Highlights common allergens (Soy, Milk, Gluten, Nuts, Sulfites, etc.).
+- 🌐 **Multi-Language Support**: Seamless reporting in English, Hindi, and Hinglish without altering safety decisions.
+- 🔒 **Stable & Consistent Results**: Built-in image fingerprint caching and strict deterministic scoring rules.
 
 ---
 

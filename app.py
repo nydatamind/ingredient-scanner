@@ -1,7 +1,7 @@
 """
 app.py
 ======
-Ingredient Safety Scanner – Camera & Image Vision Web Application.
+NutriScan · NY – Instant Ingredient Safety & Additive Scanner.
 DEVELOPED BY NITIN YADAV
 """
 
@@ -33,7 +33,7 @@ else:
 
 # ── Page Configuration ───────────────────────────────────────────────────────
 st.set_page_config(
-    page_title="Ingredient Safety Scanner",
+    page_title="NutriScan · NY",
     page_icon="🔬",
     layout="wide",
     initial_sidebar_state="collapsed",
@@ -93,9 +93,9 @@ html, body, [class*="css"] {
     background: var(--bg-surface);
     border: 1px solid var(--border);
     border-radius: 20px;
-    padding: 1.4rem 1rem;
+    padding: 1.3rem 1rem;
     text-align: center;
-    margin-bottom: 1.2rem;
+    margin-bottom: 1.1rem;
     box-shadow: 0 8px 30px rgba(0,0,0,0.3);
 }
 .hero-title {
@@ -110,6 +110,30 @@ html, body, [class*="css"] {
     font-size: 0.9rem;
     color: var(--text-sub);
     margin: 0;
+}
+
+/* ── Compact Response Language Selector ── */
+.lang-header {
+    text-align: center;
+    margin: -0.3rem 0 0.45rem;
+}
+.lang-label {
+    font-size: 0.72rem;
+    color: #64748b;
+    font-weight: 600;
+    letter-spacing: 0.8px;
+    text-transform: uppercase;
+}
+
+/* Make language selector buttons compact */
+div[data-testid="stHorizontalBlock"] > div[data-testid="column"] .lang-btn button {
+    min-height: 36px !important;
+    height: 36px !important;
+    padding: 0.2rem 0.5rem !important;
+    font-size: 0.82rem !important;
+    border-radius: 12px !important;
+    font-weight: 700 !important;
+    letter-spacing: 0.2px !important;
 }
 
 /* ── Grade Badge Card ── */
@@ -195,6 +219,17 @@ html, body, [class*="css"] {
     font-size: 0.85rem;
     color: #fca5a5;
 }
+.unreadable-banner {
+    background: rgba(245,158,11,0.12);
+    border: 1px solid rgba(245,158,11,0.4);
+    border-radius: 14px;
+    padding: 1rem;
+    margin-bottom: 1rem;
+    font-size: 0.9rem;
+    color: #fde68a;
+    line-height: 1.5;
+    text-align: center;
+}
 
 /* ── Ingredient Item Card ── */
 .ing-card {
@@ -227,64 +262,24 @@ html, body, [class*="css"] {
 .chip-mod { background: rgba(251,191,36,0.18); color: #fde047; }
 .chip-high { background: rgba(239,68,68,0.18); color: #f87171; }
 
-/* ── Ultra-Modern Button Redesign ── */
-div[data-testid="stButton"] button[kind="primary"],
-.btn-primary-custom button {
+/* ── Buttons ── */
+div[data-testid="stButton"] button[kind="primary"] {
     background: linear-gradient(135deg, #2563eb 0%, #7c3aed 100%) !important;
     color: #ffffff !important;
     border: 1px solid rgba(255,255,255,0.2) !important;
-    border-radius: 16px !important;
-    font-weight: 800 !important;
-    font-size: 1.05rem !important;
+    border-radius: 14px !important;
+    font-weight: 700 !important;
     letter-spacing: 0.3px !important;
-    padding: 0.85rem !important;
-    min-height: 52px !important;
-    width: 100% !important;
-    box-shadow: 0 4px 22px rgba(37,99,235,0.45) !important;
-    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1) !important;
+    transition: all 0.2s ease !important;
 }
 
-div[data-testid="stButton"] button[kind="primary"]:hover,
-.btn-primary-custom button:hover {
-    transform: translateY(-2px) !important;
-    box-shadow: 0 8px 30px rgba(124,58,237,0.6) !important;
-    border-color: rgba(255,255,255,0.4) !important;
-}
-
-div[data-testid="stButton"] button[kind="secondary"],
-.btn-secondary-custom button {
+div[data-testid="stButton"] button[kind="secondary"] {
     background: rgba(23, 29, 43, 0.9) !important;
     color: #94a3b8 !important;
     border: 1px solid var(--border) !important;
-    border-radius: 16px !important;
-    font-weight: 700 !important;
-    font-size: 0.95rem !important;
-    padding: 0.85rem !important;
-    min-height: 52px !important;
-    width: 100% !important;
-    transition: all 0.25s ease !important;
-    box-shadow: 0 2px 10px rgba(0,0,0,0.2) !important;
-}
-
-div[data-testid="stButton"] button[kind="secondary"]:hover,
-.btn-secondary-custom button:hover {
-    color: #ffffff !important;
-    background: #1e2638 !important;
-    border-color: #3b82f6 !important;
-    transform: translateY(-1px) !important;
-}
-
-/* ── Uploader Dropzone Styling ── */
-[data-testid="stFileUploader"] {
-    background: var(--bg-card) !important;
-    border: 2px dashed #2a3449 !important;
-    border-radius: 18px !important;
-    padding: 1rem !important;
-    transition: all 0.25s ease !important;
-}
-[data-testid="stFileUploader"]:hover {
-    border-color: #3b82f6 !important;
-    background: rgba(30,38,56,0.6) !important;
+    border-radius: 14px !important;
+    font-weight: 600 !important;
+    transition: all 0.2s ease !important;
 }
 
 /* ── Developer Badge (Footer) ── */
@@ -338,7 +333,7 @@ def get_ai_engine(custom_g: str = "", custom_q: str = ""):
 
     gk = custom_g or _get_key("GEMINI_API_KEY")
     qk = custom_q or _get_key("GROQ_API_KEY")
-    sig = f"{gk}:{qk}:v3"  # v3 = reload & language-aware engine
+    sig = f"{gk}:{qk}:v4"
 
     if "ai_engine" not in st.session_state or st.session_state.get("_sig") != sig:
         try:
@@ -358,6 +353,18 @@ def get_ai_engine(custom_g: str = "", custom_q: str = ""):
 # ─────────────────────────────────────────────────────────────────────────────
 
 def render_results(data: dict) -> None:
+    if data.get("is_unreadable", False):
+        summary = data.get("summary", "Some ingredients could not be read clearly. Please upload a sharper label photo.")
+        rec = data.get("recommendation", "Please capture a clear, well-lit photo of the ingredient list.")
+        st.markdown(f"""
+        <div class="unreadable-banner">
+            <div style="font-size:1.5rem;margin-bottom:0.4rem;">📷 🔍</div>
+            <strong style="font-size:1rem;color:#fef08a;">{summary}</strong>
+            <div style="font-size:0.85rem;color:#fde68a;margin-top:0.4rem;">{rec}</div>
+        </div>
+        """, unsafe_allow_html=True)
+        return
+
     grade = data.get("overall_grade", "C").upper()
     score = data.get("overall_score", 50)
     info = GRADE_INFO.get(grade, GRADE_INFO["C"])
@@ -463,22 +470,20 @@ def render_sidebar() -> tuple[str, str]:
         st.markdown("""
         <div style="text-align:center;padding:0.5rem 0 1rem;">
             <div style="font-size:1.5rem">🔬</div>
-            <div style="font-weight:800;font-size:0.9rem;letter-spacing:1px">DEVELOPED BY NITIN YADAV</div>
-            <div style="font-size:0.75rem;color:#94a3b8">Ingredient Scanner</div>
+            <div style="font-weight:800;font-size:0.9rem;letter-spacing:1px">NutriScan · NY</div>
+            <div style="font-size:0.75rem;color:#94a3b8">DEVELOPED BY NITIN YADAV</div>
         </div>
         """, unsafe_allow_html=True)
 
         st.divider()
 
-        # Engine Status
+        # Engine Status - Clean and professional without technical model names
         ai = st.session_state.get("ai_engine")
         if ai:
-            info = ai.get_status_info()
-            g_icon = "🟢" if info["gemini_available"] else "🔴"
-            q_icon = "⚡" if info.get("groq_available") else "⭕"
-            st.markdown(f"{g_icon} **Gemini**: `{info['gemini_model']}`")
-            st.markdown(f"{q_icon} **Groq**: `{info.get('groq_model', 'Not configured')}`")
-            st.markdown(f"🔄 **Pipeline**: `{info.get('pipeline', 'Gemini Vision')}`")
+            st.markdown("🟢 **AI Analysis Engine**: `Active & Ready`")
+            st.markdown("⚡ **Safety Scoring**: `Deterministic Rules Engine`")
+        else:
+            st.markdown("🟡 **AI Analysis Engine**: `Initializing...`")
 
         st.divider()
 
@@ -494,7 +499,8 @@ def render_sidebar() -> tuple[str, str]:
 
         st.markdown("""
         <div style="font-size:0.7rem;color:#64748b;text-align:center;margin-top:2rem">
-            ⚡ <strong>DEVELOPED BY NITIN YADAV</strong>
+            ⚡ <strong>NutriScan · NY</strong><br>
+            DEVELOPED BY NITIN YADAV
         </div>
         """, unsafe_allow_html=True)
 
@@ -517,32 +523,53 @@ def main() -> None:
     # Clean Header
     st.markdown("""
     <div class="hero-box">
-        <h1 class="hero-title">🔬 Ingredient Safety Scanner</h1>
+        <h1 class="hero-title">🔬 NutriScan · NY</h1>
         <p class="hero-subtitle">Capture with your Phone Camera or choose from Gallery for instant analysis</p>
     </div>
     """, unsafe_allow_html=True)
 
-    # ── Language Selector ────────────────────────────────────────────────────
+    # ── Compact Response Language Selector ───────────────────────────────────
     st.markdown("""
-    <div style="text-align:center;margin:-0.4rem 0 0.6rem;">
-        <span style="font-size:0.78rem;color:#64748b;font-weight:600;letter-spacing:0.8px;text-transform:uppercase;">🌐 Response Language</span>
+    <div class="lang-header">
+        <span class="lang-label">🌐 Response Language</span>
     </div>
     """, unsafe_allow_html=True)
-    lang_col1, lang_col2, lang_col3 = st.columns(3)
+
     if "language" not in st.session_state:
         st.session_state["language"] = "Hinglish"
+
+    lang_col1, lang_col2, lang_col3 = st.columns(3)
+    curr_lang = st.session_state["language"]
+
     with lang_col1:
-        if st.button("🇬🇧 English",  key="lang_en",  use_container_width=True,
-                     type="primary" if st.session_state["language"] == "English"  else "secondary"):
-            st.session_state["language"] = "English";  st.rerun()
+        st.markdown('<div class="lang-btn">', unsafe_allow_html=True)
+        if st.button("🇬🇧 English", key="lang_en", use_container_width=True,
+                     type="primary" if curr_lang == "English" else "secondary"):
+            if st.session_state["language"] != "English":
+                st.session_state["language"] = "English"
+                st.session_state["_lang_changed"] = True
+                st.rerun()
+        st.markdown('</div>', unsafe_allow_html=True)
+
     with lang_col2:
-        if st.button("🇮🇳 Hindi",    key="lang_hi",  use_container_width=True,
-                     type="primary" if st.session_state["language"] == "Hindi"    else "secondary"):
-            st.session_state["language"] = "Hindi";    st.rerun()
+        st.markdown('<div class="lang-btn">', unsafe_allow_html=True)
+        if st.button("🇮🇳 Hindi", key="lang_hi", use_container_width=True,
+                     type="primary" if curr_lang == "Hindi" else "secondary"):
+            if st.session_state["language"] != "Hindi":
+                st.session_state["language"] = "Hindi"
+                st.session_state["_lang_changed"] = True
+                st.rerun()
+        st.markdown('</div>', unsafe_allow_html=True)
+
     with lang_col3:
-        if st.button("🔀 Hinglish",  key="lang_hl",  use_container_width=True,
-                     type="primary" if st.session_state["language"] == "Hinglish" else "secondary"):
-            st.session_state["language"] = "Hinglish"; st.rerun()
+        st.markdown('<div class="lang-btn">', unsafe_allow_html=True)
+        if st.button("🔀 Hinglish", key="lang_hl", use_container_width=True,
+                     type="primary" if curr_lang == "Hinglish" else "secondary"):
+            if st.session_state["language"] != "Hinglish":
+                st.session_state["language"] = "Hinglish"
+                st.session_state["_lang_changed"] = True
+                st.rerun()
+        st.markdown('</div>', unsafe_allow_html=True)
 
     # Initialize AI
     ai = get_ai_engine(custom_gemini, custom_groq)
@@ -557,17 +584,15 @@ def main() -> None:
         st.stop()
 
     # ── Native Camera & Gallery Custom Component ──────────────────────────────
-    # Camera button  → opens phone's original camera app (take photo → tick ✔)
-    # Gallery button → opens device photo gallery / media picker directly
     uploader_val = _camera_gallery(key="native_cam_gal")
 
-    # ── Process image received from the component ─────────────────────────────
+    # ── Process image received from the component (Immediate Analysis) ────────
+    new_image_arrived = False
     if uploader_val and isinstance(uploader_val, dict):
         ts = uploader_val.get("timestamp")
         if ts and ts != st.session_state.get("_last_img_ts"):
             st.session_state["_last_img_ts"] = ts
             raw_b64 = uploader_val.get("data", "")
-            # Strip the data URL prefix (e.g. "data:image/jpeg;base64,")
             if "," in raw_b64:
                 raw_b64 = raw_b64.split(",", 1)[1]
             try:
@@ -576,70 +601,63 @@ def main() -> None:
                 st.session_state["active_image"] = img
                 st.session_state["active_source"] = uploader_val.get("source", "camera")
                 st.session_state.pop("scan_data", None)
-                st.rerun()
+                new_image_arrived = True
             except Exception as e:
                 st.error(f"Could not load image: {e}")
 
-    # ── Active Image Preview & Scan ───────────────────────────────────────────
+    # If language was changed with an active image, refresh the scan output deterministically
     active_img: Image.Image | None = st.session_state.get("active_image")
+    lang_changed = st.session_state.pop("_lang_changed", False)
 
+    # Trigger instant analysis automatically without extra button click
+    if (new_image_arrived or (lang_changed and active_img is not None) or (active_img is not None and "scan_data" not in st.session_state)):
+        lang = st.session_state.get("language", "Hinglish")
+        spinner_msg = {
+            "English":  "🔬 Analyzing your ingredients…",
+            "Hindi":    "🔬 सामग्रियों का विश्लेषण हो रहा है…",
+            "Hinglish": "🔬 Ingredients ka analysis ho raha hai…",
+        }.get(lang, "🔬 Analyzing your ingredients…")
+
+        with st.spinner(spinner_msg):
+            try:
+                res = ai.analyze_image(active_img, language=lang)
+                st.session_state["scan_data"] = res
+            except Exception as exc:
+                st.error(f"Analysis failed: {exc}")
+                with st.expander("Details"):
+                    st.code(traceback.format_exc())
+
+    # ── Active Image Preview & Retake Option ───────────────────────────────────
     if active_img is not None:
         source = st.session_state.get("active_source", "camera")
         source_label = "📷 Captured from Phone Camera" if source == "camera" else "🖼️ Selected from Gallery"
 
         st.markdown(f"""
         <div style="background:var(--bg-card);border:1px solid #3b82f6;border-radius:14px;
-                    padding:0.65rem 1rem;margin:0.8rem 0 0.6rem;text-align:center;">
+                    padding:0.55rem 1rem;margin:0.7rem 0 0.5rem;text-align:center;">
             <span style="font-size:0.82rem;font-weight:700;color:#60a5fa;letter-spacing:0.5px;">
                 {source_label}
             </span>
         </div>
         """, unsafe_allow_html=True)
 
-        st.image(active_img, caption="Product Label – Ready for Analysis", use_container_width=True)
+        st.image(active_img, caption="Product Label", use_container_width=True)
 
-        col1, col2 = st.columns([3, 1])
-        with col1:
-            btn_scan = st.button(
-                "🔍 Scan & Analyze Label Now",
-                key="btn_scan_trigger",
-                type="primary",
-                use_container_width=True,
-            )
-        with col2:
-            if st.button("🔄 Retake", key="btn_retake", type="secondary", use_container_width=True):
-                st.session_state.pop("active_image", None)
-                st.session_state.pop("scan_data", None)
-                st.session_state.pop("_last_img_ts", None)
-                st.session_state.pop("_fallback_name", None)
-                st.rerun()
-
-        if btn_scan:
-            lang = st.session_state.get("language", "Hinglish")
-            spinner_msg = {
-                "English":  "🔬 Scanning label with Gemini Vision + Groq AI…",
-                "Hindi":    "🔬 Gemini Vision + Groq AI से label scan हो रहा है…",
-                "Hinglish": "🔬 Gemini Vision + Groq AI se label scan ho raha hai…",
-            }.get(lang, "🔬 Scanning…")
-            with st.spinner(spinner_msg):
-                try:
-                    res = ai.analyze_image(active_img, language=lang)
-                    st.session_state["scan_data"] = res
-                    st.rerun()
-                except Exception as exc:
-                    st.error(f"Scan failed: {exc}")
-                    with st.expander("Details"):
-                        st.code(traceback.format_exc())
+        if st.button("🔄 Retake / Scan Another", key="btn_retake", type="secondary", use_container_width=True):
+            st.session_state.pop("active_image", None)
+            st.session_state.pop("scan_data", None)
+            st.session_state.pop("_last_img_ts", None)
+            st.rerun()
 
     # ── Results Display ───────────────────────────────────────────────────────
     if "scan_data" in st.session_state:
-        st.markdown("<hr style='border:none;border-top:1px solid #232c3d;margin:1.4rem 0;'>", unsafe_allow_html=True)
+        st.markdown("<hr style='border:none;border-top:1px solid #232c3d;margin:1.2rem 0;'>", unsafe_allow_html=True)
         render_results(st.session_state["scan_data"])
 
     # ── Bottom Developer Banner ───────────────────────────────────────────────
     st.markdown("""
     <div class="dev-banner">
-        <span class="dev-badge">⚡ DEVELOPED BY NITIN YADAV</span>
+        <span class="dev-badge">⚡ NutriScan · NY</span>
     </div>
     """, unsafe_allow_html=True)
 
